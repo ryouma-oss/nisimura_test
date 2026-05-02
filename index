@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f172a">
+<title>音声入力 - TO Healthcare Nexus</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
+  background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
+  color:#e2e8f0;display:flex;align-items:center;justify-content:center;
+  min-height:100vh;padding:16px;line-height:1.6;
+}
+.card{
+  background:rgba(30,41,59,.95);backdrop-filter:blur(10px);
+  border-radius:24px;padding:28px 24px;text-align:center;
+  max-width:440px;width:100%;
+  box-shadow:0 20px 60px rgba(0,0,0,.4);
+  border:1px solid rgba(148,163,184,.15);
+}
+h1{font-size:20px;margin-bottom:4px;font-weight:700;letter-spacing:.02em}
+.sub{font-size:13px;color:#94a3b8;margin-bottom:24px}
+.mic-wrap{position:relative;width:140px;height:140px;margin:0 auto 16px}
+.mic-btn{
+  width:140px;height:140px;border-radius:50%;border:none;cursor:pointer;
+  font-size:54px;transition:all .25s;outline:none;
+  position:relative;z-index:2;
+}
+.mic-btn.init{background:#334155;color:#64748b;cursor:wait}
+.mic-btn.ready{background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;box-shadow:0 8px 24px rgba(13,148,136,.4)}
+.mic-btn.ready:hover{transform:scale(1.05)}
+.mic-btn.ready:active{transform:scale(.95)}
+.mic-btn.rec{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;box-shadow:0 8px 24px rgba(239,68,68,.5)}
+.mic-btn.paused{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff}
+.pulse{
+  position:absolute;top:0;left:0;width:140px;height:140px;border-radius:50%;
+  background:rgba(239,68,68,.3);z-index:1;display:none;
+}
+.pulse.active{display:block;animation:pulse 1.5s infinite}
+@keyframes pulse{
+  0%{transform:scale(1);opacity:.6}
+  100%{transform:scale(1.4);opacity:0}
+}
+.level-meter{
+  width:100%;height:8px;background:#1e293b;border-radius:4px;
+  margin:14px 0 8px;overflow:hidden;display:none;
+}
+.level-meter.active{display:block}
+.level-bar{
+  height:100%;width:0%;background:linear-gradient(90deg,#0d9488,#14b8a6,#84cc16,#facc15,#ef4444);
+  border-radius:4px;transition:width .1s;
+}
+.status{font-size:15px;font-weight:600;min-height:24px;margin:8px 0}
+.timer{font-family:'SF Mono',Menlo,monospace;font-size:32px;color:#f87171;margin:8px 0;font-weight:600;letter-spacing:.05em;display:none}
+.timer.active{display:block}
+.size-info{font-size:11px;color:#64748b;margin-top:4px;display:none}
+.size-info.active{display:block}
+.size-warn{color:#facc15}
+.size-danger{color:#f87171}
+.controls{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.btn{
+  padding:11px 18px;border-radius:10px;border:none;cursor:pointer;
+  font-size:13px;font-weight:600;transition:all .15s;
+  font-family:inherit;display:inline-flex;align-items:center;gap:6px;
+}
+.btn-primary{background:#0d9488;color:#fff}
+.btn-primary:hover:not(:disabled){background:#14b8a6}
+.btn-primary:disabled{background:#334155;color:#64748b;cursor:not-allowed}
+.btn-secondary{background:#334155;color:#e2e8f0}
+.btn-secondary:hover{background:#475569}
+.btn-warn{background:#f59e0b;color:#fff}
+.btn-warn:hover{background:#d97706}
+.btn-danger{background:#ef4444;color:#fff}
+.btn-danger:hover{background:#dc2626}
+.preview{
+  margin-top:16px;padding:14px;background:#0f172a;border-radius:12px;
+  border:1px solid #334155;display:none;
+}
+.preview.active{display:block}
+.preview audio{width:100%;height:36px;outline:none}
+.send-section{margin-top:16px;display:none}
+.send-section.active{display:block}
+.send-btn{
+  width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;
+  font-size:15px;font-weight:700;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;
+  font-family:inherit;transition:all .15s;
+}
+.send-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px rgba(13,148,136,.4)}
+.send-btn:disabled{background:#334155;color:#94a3b8;cursor:not-allowed}
+.progress{
+  margin-top:12px;display:none;
+}
+.progress.active{display:block}
+.progress-bar{
+  width:100%;height:6px;background:#1e293b;border-radius:3px;overflow:hidden;
+}
+.progress-fill{
+  height:100%;background:linear-gradient(90deg,#0d9488,#14b8a6);border-radius:3px;
+  transition:width .3s;width:0%;
+}
+.progress-text{font-size:11px;color:#94a3b8;margin-top:6px}
+.result-box{
+  margin-top:16px;padding:16px;background:#0f172a;border-radius:12px;
+  border:1px solid #334155;font-size:13px;text-align:left;line-height:1.7;
+  max-height:240px;overflow-y:auto;display:none;white-space:pre-wrap;word-break:break-word;
+}
+.result-box.active{display:block}
+
+/* AI処理結果の見やすい表示 */
+.result-section{
+  margin-top:16px;display:none;
+}
+.result-section.active{display:block}
+.result-header{
+  display:flex;align-items:center;gap:10px;margin-bottom:12px;
+  padding:10px 14px;background:linear-gradient(135deg,#0d9488,#14b8a6);
+  border-radius:10px;color:#fff;
+}
+.result-header-icon{font-size:24px}
+.result-header-text{flex:1}
+.result-header-title{font-size:14px;font-weight:700;margin-bottom:2px}
+.result-header-sub{font-size:11px;opacity:.9}
+.result-fields{
+  background:#0f172a;border:1px solid #334155;border-radius:12px;
+  padding:14px;text-align:left;
+}
+.field-row{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 0;border-bottom:1px solid rgba(148,163,184,.1);
+}
+.field-row:last-child{border-bottom:none}
+.field-label{
+  flex-shrink:0;width:90px;font-size:12px;font-weight:600;color:#94a3b8;
+  padding-top:2px;
+}
+.field-value{
+  flex:1;font-size:14px;color:#e2e8f0;line-height:1.6;font-weight:500;
+  word-break:break-word;
+}
+.field-value.empty{color:#64748b;font-style:italic;font-weight:400}
+.field-value.highlight{color:#5eead4;font-weight:600}
+.field-value-list{
+  display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;
+}
+.field-tag{
+  display:inline-block;padding:3px 10px;background:rgba(13,148,136,.2);
+  color:#5eead4;border-radius:12px;font-size:12px;font-weight:600;
+  border:1px solid rgba(13,148,136,.3);
+}
+.result-text-block{
+  background:#0f172a;border:1px solid #334155;border-radius:12px;
+  padding:14px;text-align:left;font-size:14px;line-height:1.7;color:#e2e8f0;
+  white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;
+}
+.audio-section{
+  margin-top:14px;padding:12px;background:#0f172a;
+  border:1px solid #334155;border-radius:12px;
+}
+.audio-section-label{
+  font-size:11px;color:#94a3b8;margin-bottom:8px;display:flex;
+  align-items:center;gap:6px;font-weight:600;
+}
+.done{
+  margin-top:14px;padding:14px 16px;background:linear-gradient(135deg,#064e3b,#065f46);
+  border:1px solid #0d9488;border-radius:12px;
+  font-size:13px;color:#a7f3d0;line-height:1.6;display:none;
+  text-align:left;
+}
+.done.active{display:block}
+.done-title{
+  font-size:14px;font-weight:700;color:#6ee7b7;margin-bottom:6px;
+  display:flex;align-items:center;gap:6px;
+}
+.done-text{font-size:12px;color:#a7f3d0;line-height:1.6}
+.close-btn{
+  margin-top:10px;width:100%;padding:11px;border:none;border-radius:8px;
+  background:rgba(255,255,255,.15);color:#fff;font-weight:600;font-size:13px;
+  cursor:pointer;font-family:inherit;
+}
+.close-btn:hover{background:rgba(255,255,255,.25)}
+.err{
+  margin-top:14px;padding:12px;background:rgba(239,68,68,.1);
+  border:1px solid rgba(239,68,68,.3);border-radius:10px;
+  color:#fca5a5;font-size:12px;line-height:1.5;display:none;text-align:left;
+}
+.err.active{display:block}
+.spinner{
+  width:14px;height:14px;border-radius:50%;
+  border:2px solid currentColor;border-top-color:transparent;
+  animation:spin .7s linear infinite;display:inline-block;
+  vertical-align:middle;margin-right:6px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hint{font-size:11px;color:#64748b;margin-top:14px;line-height:1.5}
+.hint a{color:#94a3b8;text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎤 音声入力</h1>
+  <p class="sub" id="modeLabel">音声で記録します</p>
+
+  <div class="mic-wrap">
+    <div class="pulse" id="pulse"></div>
+    <button class="mic-btn init" id="micBtn" disabled>🎤</button>
+  </div>
+
+  <div class="status" id="status">準備中...</div>
+  <div class="timer" id="timer">00:00</div>
+
+  <div class="level-meter" id="levelMeter">
+    <div class="level-bar" id="levelBar"></div>
+  </div>
+
+  <div class="size-info" id="sizeInfo"></div>
+
+  <div class="controls" id="controls"></div>
+
+  <div class="audio-section preview" id="preview" style="display:none">
+    <div class="audio-section-label">🎙 録音した音声を確認</div>
+    <audio id="previewAudio" controls></audio>
+  </div>
+
+  <div class="send-section" id="sendSection">
+    <button class="send-btn" id="sendBtn">📤 この音声でAI処理を実行</button>
+    <div class="progress" id="progress">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-text" id="progressText">準備中...</div>
+    </div>
+  </div>
+
+  <div class="result-section" id="resultSection">
+    <div class="result-header">
+      <div class="result-header-icon">✨</div>
+      <div class="result-header-text">
+        <div class="result-header-title">AI処理結果</div>
+        <div class="result-header-sub">下記の内容がメイン画面に自動入力されました</div>
+      </div>
+    </div>
+    <div id="resultContent"></div>
+  </div>
+
+  <div class="done" id="done">
+    <div class="done-title">✅ メイン画面に反映されました</div>
+    <div class="done-text">
+      メイン画面のフォームに自動入力されています。<br>
+      内容を確認して保存してください。<br><br>
+      <strong>別の項目に音声入力したい場合：</strong><br>
+      このタブを閉じて、メイン画面で「AI入力」ボタンをもう一度押してください。
+    </div>
+    <button class="close-btn" onclick="window.close()">このタブを閉じる</button>
+  </div>
+  <div class="err" id="err"></div>
+
+  <div class="hint" id="hint"></div>
+</div>
+
+<script>
+'use strict';
+
+// ============================================================
+// 設定とユーティリティ
+// ============================================================
+const params = new URLSearchParams(location.search);
+const DEPLOY_URL = params.get('u') || '';
+const SESSION_ID = params.get('s') || '';
+const VERSION = '2.0.0';
+
+// セキュリティチェック
+if (!DEPLOY_URL || !SESSION_ID) {
+  document.body.innerHTML = '<div class="card"><h1>⚠️ パラメータエラー</h1><p style="margin-top:12px;font-size:13px;color:#94a3b8">必要なパラメータがありません。メイン画面から正しくアクセスしてください。</p></div>';
+  throw new Error('Missing required parameters');
+}
+if (!DEPLOY_URL.startsWith('https://script.google.com/')) {
+  document.body.innerHTML = '<div class="card"><h1>⚠️ セキュリティエラー</h1><p style="margin-top:12px;font-size:13px;color:#94a3b8">不正なURLが指定されました。</p></div>';
+  throw new Error('Invalid deploy URL');
+}
+
+// DOM参照
+const $ = id => document.getElementById(id);
+const ui = {
+  micBtn: $('micBtn'), pulse: $('pulse'), status: $('status'), timer: $('timer'),
+  levelMeter: $('levelMeter'), levelBar: $('levelBar'), sizeInfo: $('sizeInfo'),
+  controls: $('controls'), preview: $('preview'), previewAudio: $('previewAudio'),
+  sendSection: $('sendSection'), sendBtn: $('sendBtn'),
+  progress: $('progress'), progressFill: $('progressFill'), progressText: $('progressText'),
+  resultSection: $('resultSection'), resultContent: $('resultContent'),
+  done: $('done'), err: $('err'), hint: $('hint')
+};
+
+// 状態
+const state = {
+  phase: 'init', // init | ready | recording | paused | recorded | sending | done | error
+  stream: null,
+  recorder: null,
+  audioContext: null,
+  analyser: null,
+  levelTimer: null,
+  chunks: [],
+  blob: null,
+  startTime: 0,
+  pausedDuration: 0,
+  pauseStart: 0,
+  timerInterval: null,
+  sessionId: SESSION_ID,
+};
+
+// ============================================================
+// 初期化
+// ============================================================
+async function init() {
+  try {
+    // ブラウザ機能チェック
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('お使いのブラウザは音声録音に対応していません。Chrome / Safari の最新版をお使いください');
+    }
+    if (typeof MediaRecorder === 'undefined') {
+      throw new Error('お使いのブラウザはMediaRecorder APIに対応していません');
+    }
+
+    setStatus('マイクへのアクセスを許可してください...');
+
+    // 高品質設定でマイク取得
+    state.stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 48000,
+        channelCount: 1, // モノラルで十分
+      }
+    });
+
+    // 音量メータ用 AudioContext
+    setupLevelMeter();
+
+    state.phase = 'ready';
+    ui.micBtn.disabled = false;
+    ui.micBtn.className = 'mic-btn ready';
+    setStatus('準備完了 — マイクボタンをタップして録音開始');
+    ui.hint.innerHTML = '💡 静かな場所での録音を推奨します。複数回に分けて録音することもできます。';
+    renderControls();
+
+  } catch (err) {
+    state.phase = 'error';
+    handleInitError(err);
+  }
+}
+
+function handleInitError(err) {
+  const name = err.name || '';
+  const msg = err.message || String(err);
+  let userMsg = '';
+
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    userMsg = '🚫 マイクが許可されていません<br>' +
+      '<br><strong>許可方法:</strong><br>' +
+      '<strong>iPhone/iPad:</strong> アドレスバー左の「ぁあ」→ Webサイトの設定 → マイク → 「許可」<br>' +
+      '<strong>Android:</strong> アドレスバー左の🔒 → 権限 → マイク → 許可<br>' +
+      '<strong>PC:</strong> アドレスバー左の🔒 → サイトの設定 → マイク → 許可<br>' +
+      '<br>許可後、ページを再読み込みしてください';
+  } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+    userMsg = '🎤 マイクが見つかりません<br>マイクが接続されているか確認してください';
+  } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+    userMsg = '⚠️ マイクが他のアプリで使用中です<br>他のアプリ（Zoom、電話など）を閉じてからお試しください';
+  } else if (name === 'OverconstrainedError') {
+    userMsg = '⚠️ マイクの設定に対応していません<br>別のデバイスでお試しください';
+  } else if (name === 'SecurityError') {
+    userMsg = '🔒 セキュリティ制約によりマイクが使えません<br>HTTPS接続でアクセスしてください';
+  } else {
+    userMsg = '⚠️ ' + msg;
+  }
+
+  setStatus('マイクが使えません');
+  ui.err.innerHTML = userMsg;
+  ui.err.classList.add('active');
+  ui.micBtn.className = 'mic-btn init';
+  ui.micBtn.disabled = true;
+}
+
+// ============================================================
+// 音量メータ
+// ============================================================
+function setupLevelMeter() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    state.audioContext = new AudioCtx();
+    const source = state.audioContext.createMediaStreamSource(state.stream);
+    state.analyser = state.audioContext.createAnalyser();
+    state.analyser.fftSize = 256;
+    source.connect(state.analyser);
+  } catch (e) {
+    console.warn('Level meter setup failed:', e);
+  }
+}
+
+function startLevelMeter() {
+  if (!state.analyser) return;
+  ui.levelMeter.classList.add('active');
+  const data = new Uint8Array(state.analyser.frequencyBinCount);
+  state.levelTimer = setInterval(() => {
+    state.analyser.getByteFrequencyData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) sum += data[i];
+    const avg = sum / data.length;
+    const pct = Math.min(100, (avg / 128) * 100);
+    ui.levelBar.style.width = pct + '%';
+  }, 100);
+}
+
+function stopLevelMeter() {
+  if (state.levelTimer) clearInterval(state.levelTimer);
+  ui.levelMeter.classList.remove('active');
+  ui.levelBar.style.width = '0%';
+}
+
+// ============================================================
+// 録音制御
+// ============================================================
+function pickMimeType() {
+  const candidates = [
+    'audio/mp4',
+    'audio/mp4;codecs=mp4a.40.2',
+    'audio/aac',
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+  ];
+  for (const c of candidates) {
+    if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) {
+      return c;
+    }
+  }
+  return '';
+}
+
+function startRecording() {
+  if (state.phase !== 'ready' && state.phase !== 'recorded') return;
+
+  // 前回の録音をクリア
+  state.chunks = [];
+  state.blob = null;
+  state.pausedDuration = 0;
+  ui.preview.style.display = 'none';
+  ui.sendSection.classList.remove('active');
+  ui.resultSection.classList.remove('active');
+  ui.done.classList.remove('active');
+  ui.err.classList.remove('active');
+  ui.sizeInfo.classList.remove('active');
+
+  const mime = pickMimeType();
+  const opts = mime ? {
+    mimeType: mime,
+    audioBitsPerSecond: 128000, // 高品質: 医療用語認識のため
+  } : { audioBitsPerSecond: 128000 };
+
+  try {
+    state.recorder = new MediaRecorder(state.stream, opts);
+  } catch (e) {
+    try {
+      state.recorder = new MediaRecorder(state.stream);
+    } catch (e2) {
+      showError('録音開始失敗: ' + e2.message);
+      return;
+    }
+  }
+
+  state.recorder.ondataavailable = (ev) => {
+    if (ev.data && ev.data.size > 0) state.chunks.push(ev.data);
+  };
+
+  state.recorder.onstop = () => {
+    finishRecording();
+  };
+
+  state.recorder.onerror = (ev) => {
+    showError('録音エラー: ' + (ev.error ? ev.error.message : 'unknown'));
+  };
+
+  // 1秒ごとにデータを取得（メモリ効率）
+  state.recorder.start(1000);
+  state.startTime = Date.now();
+  state.phase = 'recording';
+
+  ui.micBtn.className = 'mic-btn rec';
+  ui.micBtn.textContent = '⏹';
+  ui.pulse.classList.add('active');
+  setStatus('録音中... タップで停止');
+  ui.timer.classList.add('active');
+  ui.sizeInfo.classList.add('active');
+  startTimer();
+  startLevelMeter();
+  renderControls();
+}
+
+function pauseRecording() {
+  if (state.phase !== 'recording' || !state.recorder) return;
+  if (state.recorder.state !== 'recording') return;
+  try {
+    state.recorder.pause();
+    state.pauseStart = Date.now();
+    state.phase = 'paused';
+    ui.micBtn.className = 'mic-btn paused';
+    ui.micBtn.textContent = '▶';
+    ui.pulse.classList.remove('active');
+    setStatus('一時停止中 — タップで再開');
+    stopLevelMeter();
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    renderControls();
+  } catch (e) {
+    console.warn('Pause failed:', e);
+  }
+}
+
+function resumeRecording() {
+  if (state.phase !== 'paused' || !state.recorder) return;
+  try {
+    state.recorder.resume();
+    state.pausedDuration += Date.now() - state.pauseStart;
+    state.phase = 'recording';
+    ui.micBtn.className = 'mic-btn rec';
+    ui.micBtn.textContent = '⏹';
+    ui.pulse.classList.add('active');
+    setStatus('録音中... タップで停止');
+    startTimer();
+    startLevelMeter();
+    renderControls();
+  } catch (e) {
+    console.warn('Resume failed:', e);
+  }
+}
+
+function stopRecording() {
+  if (state.phase !== 'recording' && state.phase !== 'paused') return;
+  if (!state.recorder) return;
+  try {
+    if (state.recorder.state !== 'inactive') {
+      state.recorder.stop();
+    }
+  } catch (e) {
+    console.warn('Stop failed:', e);
+  }
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  stopLevelMeter();
+  ui.pulse.classList.remove('active');
+}
+
+function finishRecording() {
+  const mime = state.recorder.mimeType || pickMimeType() || 'audio/mp4';
+  state.blob = new Blob(state.chunks, { type: mime });
+  state.phase = 'recorded';
+
+  ui.micBtn.className = 'mic-btn ready';
+  ui.micBtn.textContent = '🎤';
+  setStatus('録音完了');
+
+  if (state.blob.size === 0) {
+    showError('録音データが空です。マイク設定を確認してください');
+    return;
+  }
+
+  // プレビュー
+  const url = URL.createObjectURL(state.blob);
+  ui.previewAudio.src = url;
+  ui.preview.style.display = 'block';
+
+  // 送信ボタン表示
+  ui.sendSection.classList.add('active');
+
+  // サイズ警告
+  const sizeKB = Math.round(state.blob.size / 1024);
+  const sizeMB = (state.blob.size / 1048576).toFixed(1);
+  let sizeText = `📊 ${sizeKB < 1024 ? sizeKB + 'KB' : sizeMB + 'MB'}`;
+  if (state.blob.size > 19 * 1048576) {
+    sizeText += ' ⚠️ 上限に近い（20MB超は処理失敗の可能性）';
+    ui.sizeInfo.className = 'size-info active size-danger';
+  } else if (state.blob.size > 10 * 1048576) {
+    sizeText += ' ⚠️ 大きめのファイルです';
+    ui.sizeInfo.className = 'size-info active size-warn';
+  } else {
+    ui.sizeInfo.className = 'size-info active';
+  }
+  ui.sizeInfo.textContent = sizeText;
+
+  renderControls();
+}
+
+// ============================================================
+// タイマー
+// ============================================================
+function startTimer() {
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  state.timerInterval = setInterval(() => {
+    const elapsed = Date.now() - state.startTime - state.pausedDuration;
+    const sec = Math.floor(elapsed / 1000);
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    ui.timer.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+
+    // 長時間警告
+    if (sec === 600) {
+      ui.sizeInfo.textContent = '⚠️ 10分経過 — そろそろ停止を推奨';
+      ui.sizeInfo.className = 'size-info active size-warn';
+    } else if (sec === 1200) {
+      ui.sizeInfo.textContent = '🚨 20分経過 — これ以上は処理できません。停止してください';
+      ui.sizeInfo.className = 'size-info active size-danger';
+    }
+  }, 250);
+}
+
+// ============================================================
+// 操作ボタン
+// ============================================================
+function renderControls() {
+  ui.controls.innerHTML = '';
+  const phase = state.phase;
+
+  if (phase === 'recording') {
+    ui.controls.innerHTML = `
+      <button class="btn btn-warn" onclick="window.handleClick('pause')">⏸ 一時停止</button>
+      <button class="btn btn-danger" onclick="window.handleClick('stop')">⏹ 停止</button>
+    `;
+  } else if (phase === 'paused') {
+    ui.controls.innerHTML = `
+      <button class="btn btn-primary" onclick="window.handleClick('resume')">▶ 再開</button>
+      <button class="btn btn-danger" onclick="window.handleClick('stop')">⏹ 停止</button>
+    `;
+  } else if (phase === 'recorded') {
+    ui.controls.innerHTML = `
+      <button class="btn btn-secondary" onclick="window.handleClick('rerecord')">🔄 録り直す</button>
+    `;
+  }
+  // done状態ではボタン表示なし（メイン画面に戻る案内のみ）
+}
+
+window.handleClick = (action) => {
+  if (action === 'pause') pauseRecording();
+  else if (action === 'resume') resumeRecording();
+  else if (action === 'stop') stopRecording();
+  else if (action === 'rerecord') startRecording();
+};
+
+ui.micBtn.addEventListener('click', () => {
+  if (state.phase === 'ready') startRecording();
+  else if (state.phase === 'recording') stopRecording();
+  else if (state.phase === 'paused') resumeRecording();
+  else if (state.phase === 'recorded') startRecording();
+});
+
+// ============================================================
+// 送信処理（チャンク分割でiOS対応）
+// ============================================================
+async function sendAudio() {
+  if (!state.blob || state.blob.size === 0) {
+    showError('送信する録音データがありません');
+    return;
+  }
+
+  state.phase = 'sending';
+  ui.sendBtn.disabled = true;
+  ui.progress.classList.add('active');
+  ui.err.classList.remove('active');
+
+  try {
+    // Step 1: Base64変換
+    setProgress(5, '音声データを変換中...');
+    const base64 = await blobToBase64(state.blob);
+    if (!base64 || base64.length < 100) {
+      throw new Error('変換結果が不正です');
+    }
+
+    // Step 2: チャンク分割送信
+    const CHUNK_SIZE = 70000; // 70KB (CacheService 100KB制限内)
+    const totalChunks = Math.ceil(base64.length / CHUNK_SIZE);
+    setProgress(10, `送信中 0/${totalChunks} チャンク...`);
+
+    for (let i = 0; i < totalChunks; i++) {
+      const chunk = base64.substring(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+      await postChunk(i, chunk, state.blob.type, state.blob.size, totalChunks);
+      const pct = 10 + Math.floor((i + 1) / totalChunks * 70);
+      setProgress(pct, `送信中 ${i + 1}/${totalChunks} チャンク...`);
+    }
+
+    // Step 3: 結合とAI処理
+    setProgress(85, 'AIが音声を解析中...（30秒〜1分かかる場合があります）');
+    const result = await postFinish(totalChunks, state.blob.type);
+
+    setProgress(100, '完了');
+    setStatus('✅ AI処理完了');
+
+    // 結果を整形して表示
+    renderResult(result.result || '');
+    ui.resultSection.classList.add('active');
+    ui.done.classList.add('active');
+    ui.sendBtn.style.display = 'none';
+    ui.progress.classList.remove('active');
+    ui.preview.style.display = 'none'; // 録音プレビューは閉じる（結果に集中）
+    state.phase = 'done';
+    renderControls();
+
+    // 結果が見えるよう自動スクロール
+    setTimeout(() => {
+      ui.resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+
+  } catch (err) {
+    state.phase = 'recorded';
+    ui.sendBtn.disabled = false;
+    ui.sendBtn.textContent = '🔄 再送信する';
+    ui.progress.classList.remove('active');
+
+    const msg = err.message || String(err);
+    let userMsg = '送信失敗: ' + msg;
+    if (/Load failed|TypeError|Network|Failed to fetch/i.test(msg)) {
+      userMsg += '<br>📡 通信エラーです。Wi-Fi/モバイル回線を確認してから「再送信」を押してください';
+    } else if (/HTTP 4|HTTP 5/i.test(msg)) {
+      userMsg += '<br>🛠 サーバー側でエラーが発生しました。時間を置いてお試しください';
+    }
+    showError(userMsg);
+  }
+}
+
+async function postChunk(idx, data, mime, totalSize, totalChunks) {
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const resp = await fetchWithTimeout(DEPLOY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'audioChunk',
+          sessionId: state.sessionId,
+          chunkIndex: idx,
+          chunkData: data,
+          mime: mime,
+          totalSize: totalSize,
+          totalChunks: totalChunks,
+        }),
+      }, 30000);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const txt = await resp.text();
+      const json = JSON.parse(txt);
+      if (json.error) throw new Error(json.error);
+      return json;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < 3) {
+        await sleep(1000 * attempt);
+      }
+    }
+  }
+  throw lastErr || new Error('チャンク送信失敗 idx=' + idx);
+}
+
+async function postFinish(totalChunks, mime) {
+  const resp = await fetchWithTimeout(DEPLOY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      action: 'audioFinish',
+      sessionId: state.sessionId,
+      totalChunks: totalChunks,
+      mime: mime,
+    }),
+  }, 180000); // 3分タイムアウト（Gemini処理用）
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const txt = await resp.text();
+  const json = JSON.parse(txt);
+  if (json.error) throw new Error(json.error);
+  return json;
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      try {
+        const dr = fr.result;
+        const idx = dr.indexOf(',');
+        resolve(idx >= 0 ? dr.substring(idx + 1) : dr);
+      } catch (e) { reject(e); }
+    };
+    fr.onerror = () => reject(new Error('FileReader失敗'));
+    fr.onabort = () => reject(new Error('読み込み中断'));
+    fr.readAsDataURL(blob);
+  });
+}
+
+function fetchWithTimeout(url, opts, ms) {
+  return new Promise((resolve, reject) => {
+    const ctrl = ('AbortController' in window) ? new AbortController() : null;
+    const timer = setTimeout(() => {
+      if (ctrl) ctrl.abort();
+      reject(new Error('タイムアウト (' + Math.round(ms / 1000) + '秒)'));
+    }, ms);
+    const finalOpts = ctrl ? { ...opts, signal: ctrl.signal } : opts;
+    fetch(url, finalOpts).then(r => { clearTimeout(timer); resolve(r); })
+      .catch(e => { clearTimeout(timer); reject(e); });
+  });
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+// ============================================================
+// UI ヘルパー
+// ============================================================
+function setStatus(msg) {
+  ui.status.textContent = msg;
+}
+
+function setProgress(pct, text) {
+  ui.progressFill.style.width = pct + '%';
+  ui.progressText.textContent = text;
+}
+
+function showError(msg) {
+  ui.err.innerHTML = msg;
+  ui.err.classList.add('active');
+}
+
+// ============================================================
+// AI結果の整形表示
+// ============================================================
+
+// 各フィールドの日本語ラベル定義（来院記録系）
+const FIELD_LABELS = {
+  // visitFull
+  date: '日付',
+  type: '来院種別',
+  pcr: 'PCR',
+  treatments: '処置',
+  staffComment: 'コメント',
+  nextRecall: '次回予約',
+  cariesRisk: 'う蝕リスク',
+  perioStage: '歯周ステージ',
+  oralFunctionRisk: '口腔機能',
+  personalRisk: '個人リスク',
+  chewing: '咀嚼能力',
+  tonguePressure: '舌圧',
+  lipPressure: '口唇圧',
+  // patient系
+  name: '氏名',
+  kana: 'フリガナ',
+  age: '年齢',
+  gender: '性別',
+  relationship: '続柄',
+  // note系
+  content: '内容',
+  tags: 'タグ',
+  // dental_chart系
+  toothNum: '歯番',
+  statuses: '状態',
+};
+
+// 値の表示変換
+function formatFieldValue(key, value) {
+  if (value === null || value === undefined || value === '') {
+    return { type: 'empty', text: '（未記入）' };
+  }
+  // 配列はタグ表示
+  if (Array.isArray(value)) {
+    if (value.length === 0) return { type: 'empty', text: '（なし）' };
+    return { type: 'tags', items: value.map(v => String(v)) };
+  }
+  // オブジェクトは整形JSONとして表示
+  if (typeof value === 'object') {
+    return { type: 'text', text: JSON.stringify(value, null, 2) };
+  }
+  // 単位付きフィールド
+  if (key === 'pcr' && typeof value === 'number') return { type: 'highlight', text: value + ' %' };
+  if (key === 'pcr') return { type: 'highlight', text: String(value) + (String(value).includes('%') ? '' : ' %') };
+  if (key === 'tonguePressure' || key === 'lipPressure') {
+    const s = String(value);
+    return { type: 'highlight', text: s.includes('kPa') ? s : s + ' kPa' };
+  }
+  if (key === 'chewing') return { type: 'highlight', text: String(value) };
+  // リスク系は色付き
+  if (['cariesRisk', 'perioStage', 'oralFunctionRisk', 'personalRisk'].includes(key)) {
+    return { type: 'highlight', text: String(value) };
+  }
+  return { type: 'text', text: String(value) };
+}
+
+function escapeHTML(s) {
+  const div = document.createElement('div');
+  div.textContent = String(s == null ? '' : s);
+  return div.innerHTML;
+}
+
+function renderResult(rawResult) {
+  ui.resultContent.innerHTML = '';
+  const rawText = String(rawResult || '').trim();
+
+  if (!rawText) {
+    ui.resultContent.innerHTML = '<div class="result-text-block">（結果なし）</div>';
+    return;
+  }
+
+  // JSONとしてパース試行
+  let parsed = null;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch (e) {
+    // JSON以外: テキストとしてそのまま表示
+  }
+
+  // パースできて、かつオブジェクトの場合は構造化表示
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const fields = document.createElement('div');
+    fields.className = 'result-fields';
+
+    const keys = Object.keys(parsed);
+    if (keys.length === 0) {
+      ui.resultContent.innerHTML = '<div class="result-text-block">（フィールドなし）</div>';
+      return;
+    }
+
+    keys.forEach(key => {
+      const value = parsed[key];
+      const label = FIELD_LABELS[key] || key;
+      const formatted = formatFieldValue(key, value);
+
+      const row = document.createElement('div');
+      row.className = 'field-row';
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'field-label';
+      labelEl.textContent = label;
+
+      const valueEl = document.createElement('div');
+      if (formatted.type === 'tags') {
+        valueEl.className = 'field-value';
+        const list = document.createElement('div');
+        list.className = 'field-value-list';
+        formatted.items.forEach(item => {
+          const tag = document.createElement('span');
+          tag.className = 'field-tag';
+          tag.textContent = item;
+          list.appendChild(tag);
+        });
+        valueEl.appendChild(list);
+      } else if (formatted.type === 'empty') {
+        valueEl.className = 'field-value empty';
+        valueEl.textContent = formatted.text;
+      } else if (formatted.type === 'highlight') {
+        valueEl.className = 'field-value highlight';
+        valueEl.textContent = formatted.text;
+      } else {
+        valueEl.className = 'field-value';
+        valueEl.textContent = formatted.text;
+      }
+
+      row.appendChild(labelEl);
+      row.appendChild(valueEl);
+      fields.appendChild(row);
+    });
+
+    ui.resultContent.appendChild(fields);
+  } else {
+    // テキスト/配列はそのまま表示
+    const block = document.createElement('div');
+    block.className = 'result-text-block';
+    if (Array.isArray(parsed)) {
+      block.textContent = parsed.map(item => typeof item === 'object' ? JSON.stringify(item, null, 2) : String(item)).join('\n');
+    } else {
+      block.textContent = rawText;
+    }
+    ui.resultContent.appendChild(block);
+  }
+}
+
+ui.sendBtn.addEventListener('click', sendAudio);
+
+// ============================================================
+// 起動
+// ============================================================
+init();
+
+// ページ離脱時にマイクを開放
+window.addEventListener('beforeunload', () => {
+  if (state.stream) {
+    state.stream.getTracks().forEach(t => t.stop());
+  }
+  if (state.audioContext && state.audioContext.state !== 'closed') {
+    state.audioContext.close();
+  }
+});
+</script>
+</body>
+</html>
